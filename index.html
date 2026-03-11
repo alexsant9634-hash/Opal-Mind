@@ -718,11 +718,11 @@ textarea.form-input{resize:vertical;font-size:12px;line-height:1.6;}
 /* ── MODALS ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);z-index:5000;display:none;align-items:center;justify-content:center;}
 .modal-overlay.visible{display:flex;}
-.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:26px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.15);max-height:85vh;overflow-y:auto;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:26px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.15);max-height:85vh;overflow-y:auto;position:relative;}
 .modal-sm{max-width:380px;}
 .modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:18px;color:var(--text);}
-.modal-close{float:right;width:28px;height:28px;border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:18px;border-radius:5px;}
-.modal-close:hover{background:var(--surface2);}
+.modal-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:var(--surface2);cursor:pointer;color:var(--text-muted);font-size:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;z-index:10;line-height:1;}
+.modal-close:hover{background:var(--border2);color:var(--text);}
 
 /* Templates grid */
 .templates-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -3455,6 +3455,7 @@ function ctxDo(action) {
   else if (action==='duplicate') duplicateBranch();
   else if (action==='collapse') { if(edState.selectedId&&edState.nodes[edState.selectedId]){edState.nodes[edState.selectedId].collapsed=!edState.nodes[edState.selectedId].collapsed;saveHistory();renderAll();} }
   else if (action==='delete') deleteSelected();
+  else if (action==='ai-expand') openAIExpand(edState.selectedId);
 }
 
 // ══════════════════════════════════════════════════
@@ -3562,18 +3563,6 @@ function closeAllDropdowns() {
   document.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('open'));
 }
 
-function openLayoutModal() { openModal('modal-layout'); }
-
-// ══════════════════════════════════════════════════
-//  TOAST
-// ══════════════════════════════════════════════════
-let toastT;
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastT);
-  toastT = setTimeout(() => t.classList.remove('show'), 2200);
-}
 
 // ══════════════════════════════════════════════════
 //  UTILS
@@ -3991,49 +3980,9 @@ function showSharedMapView(data, title) {
   }, 100);
 }
 
-// ── PATCH ctxDo to handle ai-expand ──
-const _origCtxDo = ctxDo;
-function ctxDo(action) {
-  if (action === 'ai-expand') { hideCtxMenu(); openAIExpand(edState.selectedId); return; }
-  _origCtxDo(action);
-}
+// ctxDo ai-expand handled in original function above
 
-// ── PATCH buildAIMap to use animation ──
-const _origBuildAIMap = buildAIMap;
-function buildAIMap(data, originalPrompt) {
-  if (!confirm('Criar mapa "' + data.root + '"? O mapa atual será substituído.')) return;
-
-  edState.nodes = {};
-  edState.edges = [];
-  edState.selectedId = null;
-  edState.selectedIds.clear();
-  edState.nextId = (edState.nextId || 100) + 1;
-  document.getElementById('nodes-layer').innerHTML = '';
-
-  const nodesToAdd = {};
-  const rootId = 'n' + (++edState.nextId);
-  nodesToAdd[rootId] = { id:rootId, label:data.root, x:0, y:0, styleIdx:0, shape:'rounded', parentId:null, children:[], collapsed:false, isRoot:true, note:'', url:'', tags:[], priority:null };
-
-  const branches = data.branches || [];
-  branches.forEach((branch, i) => {
-    const ang = (i / branches.length) * Math.PI * 2 - Math.PI / 2;
-    const r1 = 210;
-    const bx = Math.cos(ang) * r1, by = Math.sin(ang) * r1;
-    const bid = 'n' + (++edState.nextId);
-    nodesToAdd[bid] = { id:bid, label:branch.label, x:bx, y:by, styleIdx:(i%7)+1, shape:'rounded', parentId:rootId, children:[], collapsed:false, isRoot:false, note:'', url:'', tags:[], priority:null };
-    nodesToAdd[rootId].children.push(bid);
-
-    (branch.children||[]).forEach((child, j) => {
-      const subAng = ang + (j - (branch.children.length-1)/2)*0.45;
-      const cid = 'n' + (++edState.nextId);
-      nodesToAdd[cid] = { id:cid, label:child, x:bx+Math.cos(subAng)*160, y:by+Math.sin(subAng)*160, styleIdx:0, shape:'rounded', parentId:bid, children:[], collapsed:false, isRoot:false, note:'', url:'', tags:[], priority:null };
-      nodesToAdd[bid].children.push(cid);
-    });
-  });
-
-  buildAIMapAnimated(nodesToAdd, [], rootId, data.root);
-}
-
+// buildAIMap animation handled in original function
 // Check shared map on startup
 (async () => { await checkSharedMap(); })();
 
