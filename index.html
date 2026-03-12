@@ -1236,6 +1236,11 @@ create policy "crud_own" on public.mind_maps
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M4 7h1M7 7h1M10 7h1M4 10h8"/></svg>
         Atalhos
       </button>
+      <div class="divider"></div>
+      <button class="btn" id="btn-sair" onclick="signOut()" title="Sair da conta">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h3M10 11l3-3-3-3M13 8H6"/></svg>
+        Sair
+      </button>
     </div>
   </div>
 
@@ -4088,21 +4093,15 @@ function showSharedMapView(data, title) {
   document.getElementById('map-title-input').readOnly = true;
   document.getElementById('nodes-layer').innerHTML = '';
 
-  // Hide all editing UI
-  const hideSelectors = [
-    '.ed-toolbar',           // toolbar com todos os botões
-    '#btn-ai',               // gerar com IA
-    '.ed-right .btn',        // botões do header (exportar, ver, etc)
-    '#right-panel',          // painel de propriedades
-    '.node-toolbar',         // toolbar do nó
-    '.minimap',              // minimapa
-    '#status-bar',           // barra de status
-  ];
+  // Hide all editing UI (mantém botão Sair visível)
   setTimeout(() => {
-    hideSelectors.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+    const hideIds = ['btn-ai', 'right-panel', 'status-bar'];
+    hideIds.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
+    // Esconder botões de edição do ed-right mas não o de Sair
+    document.querySelectorAll('.ed-right .btn:not(#btn-sair), .ed-toolbar, .minimap').forEach(el => {
+      el.style.display = 'none';
     });
-  }, 150);
+  }, 350);
 
   // Add read-only banner
   const existing = document.getElementById('readonly-banner');
@@ -4269,48 +4268,42 @@ Responda APENAS com o resumo, sem introdução, sem aspas, sem explicações.`;
 
 
 // ══════════════════════════════════════════════════
-//  STARTUP — check shared link first
+//  STARTUP — verifica link compartilhado
 // ══════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', async () => {
+(function checkSharedOnLoad() {
   const params = new URLSearchParams(window.location.search);
   const shareData = params.get('share');
-  const shareTitle = params.get('title') || 'Mapa Compartilhado';
+  const shareTitle = decodeURIComponent(params.get('title') || 'Mapa Compartilhado');
+  if (!shareData) return;
 
-  if (shareData) {
+  // Esconde landing imediatamente para não piscar
+  document.getElementById('landing-view').style.display = 'none';
+  document.getElementById('app-wrapper').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  // Aguarda o script carregar completamente e então mostra o mapa
+  function tryLoad(attempts) {
+    if (attempts <= 0) {
+      console.error('Timeout ao carregar mapa compartilhado');
+      return;
+    }
+    if (typeof loadEditorState !== 'function' || typeof renderAll !== 'function') {
+      setTimeout(() => tryLoad(attempts - 1), 100);
+      return;
+    }
     try {
-      // Hide landing, show app in read-only mode
-      document.getElementById('landing-view').style.display = 'none';
-      document.getElementById('app-wrapper').style.display = 'block';
-      document.body.style.overflow = 'hidden';
-
-      // Init Supabase (needed for renderAll etc)
-      initSB(SB_URL, SB_KEY);
-
-      // Show editor view
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.getElementById('view-editor').classList.add('active');
-
-      // Decode map data
       const json = decodeURIComponent(escape(atob(shareData)));
       const data = JSON.parse(json);
       if (!data.nodes) throw new Error('Dados inválidos');
-
-      // Small delay to let DOM settle
-      setTimeout(() => {
-        loadEditorState(data);
-        document.getElementById('nodes-layer').innerHTML = '';
-        if (!editorEventsBound) bindEditorEvents();
-        showSharedMapView(data, shareTitle);
-      }, 100);
-
+      showSharedMapView(data, shareTitle);
     } catch(e) {
       console.error('Erro ao carregar mapa compartilhado:', e);
-      // Fall back to landing
-      document.getElementById('landing-view').style.display = 'block';
+      document.getElementById('landing-view').style.display = 'flex';
       document.getElementById('app-wrapper').style.display = 'none';
     }
   }
-});
+  setTimeout(() => tryLoad(20), 300);
+})();
 
 </script>
 </body>
