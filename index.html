@@ -1161,11 +1161,29 @@ create policy "crud_own" on public.mind_maps
 <div class="dash-body">
   <div class="dash-top">
     <div class="dash-title">Meus Mapas</div>
-    <button class="btn dark" onclick="showNewMapModal()">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
-      Novo Mapa
-    </button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;color:var(--text-muted)"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M5 3V2M11 3V2M2 7h12"/></svg>
+        <span id="stat-maps" style="font-size:12px;font-weight:600;color:var(--text)">0</span>
+        <span style="font-size:11px;color:var(--text-muted)">mapas</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="width:13px;height:13px;color:var(--text-muted)"><circle cx="8" cy="8" r="5"/><path d="M8 5v3l2 1"/></svg>
+        <span id="stat-nodes" style="font-size:12px;font-weight:600;color:var(--text)">0</span>
+        <span style="font-size:11px;color:var(--text-muted)">nós totais</span>
+      </div>
+      <button class="btn dark" onclick="showNewMapModal()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v10M3 8h10"/></svg>
+        Novo Mapa
+      </button>
+    </div>
   </div>
+  <!-- Global Search Bar -->
+  <div style="margin-bottom:16px;position:relative;">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-muted);pointer-events:none;"><circle cx="6.5" cy="6.5" r="4"/><path d="M10 10l3 3"/></svg>
+    <input id="global-search" class="form-input" placeholder="Buscar em todos os mapas…" oninput="globalSearch(this.value)" style="padding-left:36px;font-size:13px;">
+  </div>
+  <div id="global-search-results" style="display:none;margin-bottom:16px;border:1px solid var(--border2);border-radius:10px;overflow:hidden;"></div>
   <div id="maps-grid" class="maps-grid"></div>
 </div>
 </div>
@@ -1585,6 +1603,7 @@ create policy "crud_own" on public.mind_maps
   <div class="ctx-item" onclick="ctxDo('duplicate')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M4 11H3a1 1 0 01-1-1V3a1 1 0 011-1h7a1 1 0 011 1v1"/></svg>Duplicar Ramo</div>
   <div class="ctx-item" onclick="ctxDo('collapse')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5l5 5 5-5"/></svg>Recolher/Expandir</div>
   <div class="ctx-item" onclick="ctxDo('ai-expand')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2l1.5 3.5L13 7l-3.5 1.5L8 12l-1.5-3.5L3 7l3.5-1.5z"/></svg>✨ Expandir com IA</div>
+  <div class="ctx-item" onclick="ctxDo('ai-summarize')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h7M3 12h5"/><path d="M13 10l2 2-2 2"/></svg>✨ Resumir Ramo</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item ctx-danger" onclick="ctxDo('delete')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 2h4M5 4v9a1 1 0 001 1h4a1 1 0 001-1V4"/></svg>Excluir</div>
 </div>
@@ -2071,6 +2090,7 @@ async function loadDashboard() {
 }
 
 async function renderDashboard() {
+  _allMapsCache = [];
   const grid = document.getElementById('maps-grid');
   grid.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:8px;">Carregando...</div>';
   let maps = [];
@@ -2083,6 +2103,13 @@ async function renderDashboard() {
   } else {
     maps = getOfflineMaps();
   }
+  // Update counters
+  const totalNodes = maps.reduce((acc, m) => acc + Object.keys(m.data?.nodes || {}).length, 0);
+  const statMaps = document.getElementById('stat-maps');
+  const statNodes = document.getElementById('stat-nodes');
+  if (statMaps) statMaps.textContent = maps.length;
+  if (statNodes) statNodes.textContent = totalNodes;
+
   grid.innerHTML = '';
   // New card
   const newCard = document.createElement('div');
@@ -3456,6 +3483,7 @@ function ctxDo(action) {
   else if (action==='collapse') { if(edState.selectedId&&edState.nodes[edState.selectedId]){edState.nodes[edState.selectedId].collapsed=!edState.nodes[edState.selectedId].collapsed;saveHistory();renderAll();} }
   else if (action==='delete') deleteSelected();
   else if (action==='ai-expand') openAIExpand(edState.selectedId);
+  else if (action==='ai-summarize') aiSummarizeBranch(edState.selectedId);
 }
 
 // ══════════════════════════════════════════════════
@@ -3603,6 +3631,19 @@ async function appInit() {
   } catch { showView('view-auth'); }
 }
 
+
+// ══════════════════════════════════════════════════
+//  TOAST NOTIFICATION
+// ══════════════════════════════════════════════════
+let _toastTimer;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
 
 // ══════════════════════════════════════════════════
 //  IA — GEMINI
@@ -3985,6 +4026,131 @@ function showSharedMapView(data, title) {
 // buildAIMap animation handled in original function
 // Check shared map on startup
 (async () => { await checkSharedMap(); })();
+
+
+// ══════════════════════════════════════════════════
+//  FEATURE: BUSCA GLOBAL
+// ══════════════════════════════════════════════════
+let _allMapsCache = [];
+
+async function globalSearch(query) {
+  const resultsEl = document.getElementById('global-search-results');
+  if (!query.trim()) { resultsEl.style.display = 'none'; return; }
+
+  // Use cached maps or fetch
+  if (!_allMapsCache.length && !offlineMode && sb) {
+    const { data } = await sb.from('mind_maps')
+      .select('id,title,data')
+      .eq('user_id', currentUser.id);
+    _allMapsCache = data || [];
+  }
+
+  const q = query.toLowerCase();
+  const results = [];
+
+  _allMapsCache.forEach(map => {
+    const nodes = Object.values(map.data?.nodes || {});
+    nodes.forEach(node => {
+      const inLabel = node.label?.toLowerCase().includes(q);
+      const inNote  = node.note?.toLowerCase().includes(q);
+      const inTags  = node.tags?.some(t => t.toLowerCase().includes(q));
+      if (inLabel || inNote || inTags) {
+        results.push({ mapId: map.id, mapTitle: map.title, nodeLabel: node.label, matchType: inLabel ? 'Nó' : inNote ? 'Nota' : 'Tag' });
+      }
+    });
+    if (map.title.toLowerCase().includes(q)) {
+      results.unshift({ mapId: map.id, mapTitle: map.title, nodeLabel: null, matchType: 'Mapa' });
+    }
+  });
+
+  // Deduplicate map-level matches
+  const seen = new Set();
+  const unique = results.filter(r => {
+    const key = r.mapId + (r.nodeLabel || '');
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+
+  if (!unique.length) {
+    resultsEl.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--text-muted);">Nenhum resultado encontrado.</div>';
+    resultsEl.style.display = 'block';
+    return;
+  }
+
+  resultsEl.innerHTML = unique.slice(0,12).map(r => `
+    <div onclick="openMap('${r.mapId}');document.getElementById('global-search').value='';document.getElementById('global-search-results').style.display='none';"
+      style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border2);transition:background .15s;"
+      onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(r.mapTitle)}</div>
+        ${r.nodeLabel ? `<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(r.nodeLabel)}</div>` : ''}
+      </div>
+      <span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--surface2);color:var(--text-muted);flex-shrink:0;">${r.matchType}</span>
+    </div>`).join('');
+  resultsEl.style.display = 'block';
+}
+
+// cache cleared inside renderDashboard
+
+// ══════════════════════════════════════════════════
+//  FEATURE: RESUMIR RAMO COM IA
+// ══════════════════════════════════════════════════
+async function aiSummarizeBranch(nodeId) {
+  if (!nodeId || !edState.nodes[nodeId]) { toast('Selecione um nó primeiro'); return; }
+
+  // Collect all text in the branch
+  function collectBranch(id, depth) {
+    const n = edState.nodes[id];
+    if (!n) return [];
+    const lines = ['  '.repeat(depth) + n.label];
+    (n.children || []).forEach(cid => lines.push(...collectBranch(cid, depth+1)));
+    return lines;
+  }
+  const branchText = collectBranch(nodeId, 0).join('\n');
+  if (branchText.split('\n').length < 2) { toast('O ramo precisa ter pelo menos 2 nós para resumir'); return; }
+
+  toast('✨ Resumindo ramo...');
+
+  const prompt = `Você é um especialista em síntese de informações. Analise este ramo de mapa mental e crie um resumo conciso em 1-2 frases em português brasileiro. Seja direto e objetivo.
+
+Ramo:
+${branchText}
+
+Responda APENAS com o resumo, sem introdução, sem aspas, sem explicações.`;
+
+  try {
+    const res = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + OPENROUTER_KEY,
+        'HTTP-Referer': 'https://opalmind.netlify.app',
+        'X-Title': 'Opal Mind'
+      },
+      body: JSON.stringify({
+        model: 'google/gemma-3-4b-it:free',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        max_tokens: 256
+      })
+    });
+
+    if (!res.ok) throw new Error('Erro na API: ' + res.status);
+    const data = await res.json();
+    const summary = (data.choices?.[0]?.message?.content || '').trim();
+    if (!summary) throw new Error('Resposta vazia da IA');
+
+    // Add summary as note on the node
+    edState.nodes[nodeId].note = summary;
+    saveHistory();
+    scheduleSave();
+    openRightPanel(); // Show properties panel with the note
+    toast('✨ Resumo adicionado nas notas do nó!');
+
+  } catch(e) {
+    toast('Erro ao resumir: ' + e.message);
+  }
+}
 
 </script>
 </body>
