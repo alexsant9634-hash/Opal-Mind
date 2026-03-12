@@ -1612,10 +1612,14 @@ function showLandingView() {
 // ═══ LANDING SCRIPT ═══
 
 // ── SUPABASE ──
-const { createClient } = window.supabase;
 const SB_URL = 'https://cxkalygpuoguqcqycxtq.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4a2FseWdwdW9ndXFjcXljeHRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODIwMDEsImV4cCI6MjA4ODc1ODAwMX0.cqLQru_ySquoPwc4OdpPmSjBUTJGzsV1X2nuxaZhIdE';
-var sb = createClient(SB_URL, SB_KEY);
+var sb = null;
+try {
+  sb = window.supabase.createClient(SB_URL, SB_KEY);
+} catch(e) {
+  console.error('Supabase init failed:', e);
+}
 
 // Redirect if already logged in (skip if shared link)
 (async () => {
@@ -1711,17 +1715,25 @@ async function doSignup() {
 function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
 
 // ── HERO CANVAS ANIMATION ──
-const heroCanvas = document.getElementById('hero-canvas');
-const hCtx = heroCanvas.getContext('2d');
+let heroCanvas = null, hCtx = null;
 let hNodes = [], hEdges = [], hTick = 0;
 
+function initHeroCanvas() {
+  heroCanvas = document.getElementById('hero-canvas');
+  if (!heroCanvas) return false;
+  hCtx = heroCanvas.getContext('2d');
+  return true;
+}
+
 function resizeHero() {
+  if (!heroCanvas || !hCtx) return;
   heroCanvas.width = heroCanvas.offsetWidth * devicePixelRatio;
   heroCanvas.height = heroCanvas.offsetHeight * devicePixelRatio;
   hCtx.scale(devicePixelRatio, devicePixelRatio);
 }
 
 function initHeroNodes() {
+  if (!heroCanvas) return;
   hNodes = [];
   const w = heroCanvas.offsetWidth, h = heroCanvas.offsetHeight;
   const cx = w/2, cy = h/2;
@@ -1743,6 +1755,7 @@ function initHeroNodes() {
 }
 
 function animHero() {
+  if (!heroCanvas || !hCtx) return;
   const w = heroCanvas.offsetWidth, h = heroCanvas.offsetHeight;
   hCtx.clearRect(0,0,w,h);
   hTick += .008;
@@ -1886,6 +1899,7 @@ document.querySelectorAll('.feat-card,.step,.testi-card').forEach(el => {
 
 // ── INIT ──
 window.addEventListener('load', () => {
+  initHeroCanvas();
   resizeHero(); initHeroNodes(); animHero();
   resizeDemo(); animDemo();
 });
