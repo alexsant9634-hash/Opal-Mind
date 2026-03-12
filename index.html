@@ -1658,8 +1658,10 @@ const SB_URL = 'https://cxkalygpuoguqcqycxtq.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4a2FseWdwdW9ndXFjcXljeHRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODIwMDEsImV4cCI6MjA4ODc1ODAwMX0.cqLQru_ySquoPwc4OdpPmSjBUTJGzsV1X2nuxaZhIdE';
 var sb = createClient(SB_URL, SB_KEY);
 
-// Redirect if already logged in
+// Redirect if already logged in (skip if shared link)
 (async () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('share') || params.get('share_id')) return; // shared link, don't redirect
   const { data: { session } } = await sb.auth.getSession();
   if (session?.user) redirectToApp();
 })();
@@ -4140,7 +4142,7 @@ function showSharedMapView(data, title) {
 
 // buildAIMap animation handled in original function
 // Check shared map on startup
-(async () => { await checkSharedMap(); })();
+// checkSharedMap called from DOMContentLoaded below
 
 
 // ══════════════════════════════════════════════════
@@ -4264,6 +4266,51 @@ Responda APENAS com o resumo, sem introdução, sem aspas, sem explicações.`;
     toast('Erro ao resumir: ' + e.message);
   }
 }
+
+
+// ══════════════════════════════════════════════════
+//  STARTUP — check shared link first
+// ══════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const shareData = params.get('share');
+  const shareTitle = params.get('title') || 'Mapa Compartilhado';
+
+  if (shareData) {
+    try {
+      // Hide landing, show app in read-only mode
+      document.getElementById('landing-view').style.display = 'none';
+      document.getElementById('app-wrapper').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+
+      // Init Supabase (needed for renderAll etc)
+      initSB(SB_URL, SB_KEY);
+
+      // Show editor view
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-editor').classList.add('active');
+
+      // Decode map data
+      const json = decodeURIComponent(escape(atob(shareData)));
+      const data = JSON.parse(json);
+      if (!data.nodes) throw new Error('Dados inválidos');
+
+      // Small delay to let DOM settle
+      setTimeout(() => {
+        loadEditorState(data);
+        document.getElementById('nodes-layer').innerHTML = '';
+        if (!editorEventsBound) bindEditorEvents();
+        showSharedMapView(data, shareTitle);
+      }, 100);
+
+    } catch(e) {
+      console.error('Erro ao carregar mapa compartilhado:', e);
+      // Fall back to landing
+      document.getElementById('landing-view').style.display = 'block';
+      document.getElementById('app-wrapper').style.display = 'none';
+    }
+  }
+});
 
 </script>
 </body>
