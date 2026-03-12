@@ -1620,6 +1620,7 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 var sb = null;
 try {
   sb = window.supabase.createClient(SB_URL, SB_KEY);
+  window.sb = sb; // expõe globalmente
 } catch(e) {
   console.error('Supabase init failed:', e);
 }
@@ -1644,84 +1645,9 @@ function redirectToApp() {
 }
 
 // ── AUTH MODAL ──
-function openAuth(mode) {
-  document.getElementById('auth-modal').classList.add('open','visible');
-  switchAuth(mode);
-}
+// openAuth/closeAuth/switchAuth moved to dedicated script
 
-function closeAuth() {
-  document.getElementById('auth-modal').classList.remove('open','visible');
-}
-
-function switchAuth(mode) {
-  document.getElementById('auth-login-view').style.display  = mode==='login'  ? 'block' : 'none';
-  document.getElementById('auth-signup-view').style.display = mode==='signup' ? 'block' : 'none';
-  document.getElementById('auth-success-view').style.display = 'none';
-  document.getElementById('login-err').classList.remove('show');
-  document.getElementById('signup-err').classList.remove('show');
-}
-
-// auth-modal is placed after </script>, so bind events after DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-  const authModal = document.getElementById('auth-modal');
-  if (authModal) {
-    authModal.addEventListener('click', e => {
-      if (e.target === authModal) closeAuth();
-    });
-  }
-});
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
-
-// ── LOGIN ──
-async function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  const err   = document.getElementById('login-err');
-  const btn   = document.getElementById('login-btn');
-  err.classList.remove('show');
-  if (!email || !pass) { showErr(err, 'Preencha e-mail e senha.'); return; }
-  btn.textContent = 'Entrando…'; btn.disabled = true;
-  try {
-    const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-    if (error) throw error;
-    redirectToApp();
-  } catch(e) {
-    const msgs = {
-      'Invalid login credentials': 'E-mail ou senha incorretos.',
-      'Email not confirmed': 'Confirme seu e-mail antes de entrar.',
-    };
-    showErr(err, msgs[e.message] || e.message);
-    btn.textContent = 'Entrar'; btn.disabled = false;
-  }
-}
-
-// ── SIGNUP ──
-async function doSignup() {
-  const email = document.getElementById('signup-email').value.trim();
-  const pass  = document.getElementById('signup-pass').value;
-  const err   = document.getElementById('signup-err');
-  const btn   = document.getElementById('signup-btn');
-  err.classList.remove('show');
-  if (!email || !pass) { showErr(err, 'Preencha e-mail e senha.'); return; }
-  if (pass.length < 6) { showErr(err, 'A senha precisa ter no mínimo 6 caracteres.'); return; }
-  btn.textContent = 'Criando conta…'; btn.disabled = true;
-  try {
-    const { error } = await sb.auth.signUp({ email, password: pass });
-    if (error) throw error;
-    document.getElementById('auth-signup-view').style.display = 'none';
-    document.getElementById('auth-success-view').style.display = 'block';
-    setTimeout(redirectToApp, 2000);
-  } catch(e) {
-    const msgs = {
-      'User already registered': 'Este e-mail já está cadastrado.',
-      'Password should be at least 6 characters': 'Senha muito curta.',
-    };
-    showErr(err, msgs[e.message] || e.message);
-    btn.textContent = 'Criar conta grátis'; btn.disabled = false;
-  }
-}
-
-function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+// Auth functions moved to dedicated script below
 
 // ── HERO CANVAS ANIMATION ──
 let heroCanvas = null, hCtx = null;
@@ -4344,5 +4270,87 @@ Responda APENAS com o resumo, sem introdução, sem aspas, sem explicações.`;
     </div>
   </div>
 </div>
+<script>
+// ═══ AUTH FUNCTIONS ═══
+// Garante que sb está disponível neste script
+if (!window.sb || !window.sb.auth) {
+  window.sb = window.supabase.createClient(
+    'https://cxkalygpuoguqcqycxtq.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4a2FseWdwdW9ndXFjcXljeHRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxODIwMDEsImV4cCI6MjA4ODc1ODAwMX0.cqLQru_ySquoPwc4OdpPmSjBUTJGzsV1X2nuxaZhIdE'
+  );
+}
+// Usa sempre window.sb para garantir acesso ao mesmo cliente
+function getSb() { return window.sb || sb; }
+
+function openAuth(mode) {
+  const m = document.getElementById('auth-modal');
+  if (m) { m.classList.add('open','visible'); }
+  switchAuth(mode);
+}
+function closeAuth() {
+  const m = document.getElementById('auth-modal');
+  if (m) m.classList.remove('open','visible');
+}
+function switchAuth(mode) {
+  document.getElementById('auth-login-view').style.display  = mode==='login'  ? 'block' : 'none';
+  document.getElementById('auth-signup-view').style.display = mode==='signup' ? 'block' : 'none';
+  document.getElementById('auth-success-view').style.display = 'none';
+  document.getElementById('login-err').classList.remove('show');
+  document.getElementById('signup-err').classList.remove('show');
+}
+function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-err');
+  const btn   = document.getElementById('login-btn');
+  err.classList.remove('show');
+  if (!email || !pass) { showErr(err, 'Preencha e-mail e senha.'); return; }
+  btn.textContent = 'Entrando…'; btn.disabled = true;
+  try {
+    const { error } = await getSb().auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    currentUser = (await getSb().auth.getSession()).data.session.user;
+    closeAuth();
+    showAppView();
+  } catch(e) {
+    const msgs = {
+      'Invalid login credentials': 'E-mail ou senha incorretos.',
+      'Email not confirmed': 'Confirme seu e-mail antes de entrar.',
+    };
+    showErr(err, msgs[e.message] || e.message);
+    btn.textContent = 'Entrar'; btn.disabled = false;
+  }
+}
+async function doSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const pass  = document.getElementById('signup-pass').value;
+  const err   = document.getElementById('signup-err');
+  const btn   = document.getElementById('signup-btn');
+  err.classList.remove('show');
+  if (!email || !pass) { showErr(err, 'Preencha e-mail e senha.'); return; }
+  if (pass.length < 6) { showErr(err, 'A senha precisa ter no mínimo 6 caracteres.'); return; }
+  btn.textContent = 'Criando conta…'; btn.disabled = true;
+  try {
+    const { error } = await getSb().auth.signUp({ email, password: pass });
+    if (error) throw error;
+    document.getElementById('auth-signup-view').style.display = 'none';
+    document.getElementById('auth-success-view').style.display = 'block';
+    setTimeout(() => { closeAuth(); showAppView(); }, 2000);
+  } catch(e) {
+    const msgs = {
+      'User already registered': 'Este e-mail já está cadastrado.',
+      'Password should be at least 6 characters': 'Senha muito curta.',
+    };
+    showErr(err, msgs[e.message] || e.message);
+    btn.textContent = 'Criar conta grátis'; btn.disabled = false;
+  }
+}
+// Bind auth modal events
+document.getElementById('auth-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('auth-modal')) closeAuth();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
+</script>
 </body>
 </html>
