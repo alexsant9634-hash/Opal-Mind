@@ -717,7 +717,7 @@ textarea.form-input{resize:vertical;font-size:12px;line-height:1.6;}
 
 /* ── MODALS ── */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);z-index:5000;display:none;align-items:center;justify-content:center;}
-.modal-overlay.visible{display:flex;}
+.modal-overlay.visible,.modal-overlay.open{display:flex;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;padding:26px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.15);max-height:85vh;overflow-y:auto;position:relative;}
 .modal-sm{max-width:380px;}
 .modal-title{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin-bottom:18px;color:var(--text);}
@@ -1678,12 +1678,12 @@ function redirectToApp() {
 
 // ── AUTH MODAL ──
 function openAuth(mode) {
-  document.getElementById('auth-modal').classList.add('open');
+  document.getElementById('auth-modal').classList.add('open','visible');
   switchAuth(mode);
 }
 
 function closeAuth() {
-  document.getElementById('auth-modal').classList.remove('open');
+  document.getElementById('auth-modal').classList.remove('open','visible');
 }
 
 function switchAuth(mode) {
