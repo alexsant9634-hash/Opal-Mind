@@ -2,6 +2,9 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzBhMGEwOSIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTYsMyAyOSw5LjUgMjksMjIuNSAxNiwyOSAzLDIyLjUgMyw5LjUiIGZpbGw9IndoaXRlIi8+CiAgPHBvbHlnb24gcG9pbnRzPSIxNiwzIDI5LDkuNSAxNiwxNiIgZmlsbD0icmdiYSgwLDAsMCwwLjMpIi8+CiAgPHBvbHlnb24gcG9pbnRzPSIxNiwxNiAyOSwyMi41IDE2LDI5IiBmaWxsPSJyZ2JhKDAsMCwwLDAuNDUpIi8+Cjwvc3ZnPg==">
 <link rel="shortcut icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzBhMGEwOSIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTYsMyAyOSw5LjUgMjksMjIuNSAxNiwyOSAzLDIyLjUgMyw5LjUiIGZpbGw9IndoaXRlIi8+CiAgPHBvbHlnb24gcG9pbnRzPSIxNiwzIDI5LDkuNSAxNiwxNiIgZmlsbD0icmdiYSgwLDAsMCwwLjMpIi8+CiAgPHBvbHlnb24gcG9pbnRzPSIxNiwxNiAyOSwyMi41IDE2LDI5IiBmaWxsPSJyZ2JhKDAsMCwwLDAuNDUpIi8+Cjwvc3ZnPg==">
 <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzBhMGEwOSIvPgogIDxwb2x5Z29uIHBvaW50cz0iMTYsMyAyOSw5LjUgMjksMjIuNSAxNiwyOSAzLDIyLjUgMyw5LjUiIGZpbGw9IndoaXRlIi8+CiAgPHBvbHlnb24gcG9pbnRzPSIxNiwzIDI5LDkuNSAxNiwxNiIgZmlsbD0icmdiYSgwLDAsMCwwLjMpIi8+CiAgPHBvbHlnb24gcG9pbnRzPSIxNiwxNiAyOSwyMi41IDE2LDI5IiBmaWxsPSJyZ2JhKDAsMCwwLDAuNDUpIi8+Cjwvc3ZnPg==">
@@ -1623,10 +1626,16 @@ try {
 
 // Redirect if already logged in (skip if shared link)
 (async () => {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('share') || params.get('share_id')) return; // shared link, don't redirect
-  const { data: { session } } = await sb.auth.getSession();
-  if (session?.user) redirectToApp();
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('share') || params.get('share_id')) return;
+    if (!sb) return;
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.user) {
+      currentUser = session.user; // define antes de redirecionar
+      redirectToApp();
+    }
+  } catch(e) { console.error('Session check error:', e); }
 })();
 
 function redirectToApp() {
@@ -1798,11 +1807,17 @@ function animHero() {
 }
 
 // ── DEMO CANVAS ──
-const dCanvas = document.getElementById('demo-canvas');
-const dCtx = dCanvas.getContext('2d');
+let dCanvas = null, dCtx = null;
 let dNodes=[], dEdges=[], dTick=0;
+function initDemoCanvas() {
+  dCanvas = document.getElementById('demo-canvas');
+  if (!dCanvas) return false;
+  dCtx = dCanvas.getContext('2d');
+  return true;
+}
 
 function resizeDemo() {
+  if (!dCanvas && !initDemoCanvas()) return;
   dCanvas.width = dCanvas.offsetWidth * devicePixelRatio;
   dCanvas.height = dCanvas.offsetHeight * devicePixelRatio;
   dCtx.scale(devicePixelRatio, devicePixelRatio);
@@ -1920,7 +1935,7 @@ function getSBConfig() {
 }
 
 function initSB(url, key) {
-  try { sb = createClient(url, key); return true; } catch { return false; }
+  try { sb = window.supabase.createClient(url, key); return true; } catch { return false; }
 }
 
 async function saveSetup() {
@@ -3678,8 +3693,8 @@ async function appInit() {
     loadDashboard();
     return;
   }
-  // Inicializa Supabase com credenciais fixas
-  initSB(SB_URL, SB_KEY);
+  // Garante que sb está inicializado
+  if (!sb) sb = window.supabase.createClient(SB_URL, SB_KEY);
   // Check existing session
   try {
     const { data: { session } } = await sb.auth.getSession();
@@ -3689,7 +3704,10 @@ async function appInit() {
     } else {
       showView('view-auth');
     }
-  } catch { showView('view-auth'); }
+  } catch(e) {
+    console.error('appInit error:', e);
+    showView('view-auth');
+  }
 }
 
 
