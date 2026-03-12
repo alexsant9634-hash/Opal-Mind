@@ -1926,6 +1926,7 @@ window.addEventListener('resize', () => { resizeHero(); resizeDemo(); });
 
 
 // ═══ APP SCRIPT ═══
+let isReadOnlyMode = false;
 
 // ══════════════════════════════════════════════════
 //  CONFIGURAÇÃO & SUPABASE
@@ -2644,6 +2645,7 @@ function addNode(parentId, label, x, y, isRoot=false) {
 }
 
 function addChildNode() {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
   const pid = edState.selectedId || Object.values(edState.nodes).find(n=>n.isRoot)?.id;
   if (!pid || !edState.nodes[pid]) return;
   const p = edState.nodes[pid];
@@ -2659,6 +2661,7 @@ function addChildNode() {
 }
 
 function addSiblingNode() {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
   if (!edState.selectedId || edState.nodes[edState.selectedId]?.isRoot) { addChildNode(); return; }
   const node = edState.nodes[edState.selectedId];
   if (!node.parentId) return;
@@ -2686,6 +2689,7 @@ function removeNodeRec(id) {
 }
 
 function deleteSelected() {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
   if (!edState.selectedId) return;
   if (edState.nodes[edState.selectedId]?.isRoot) { toast('Não é possível excluir o nó raiz'); return; }
   const pid = edState.nodes[edState.selectedId]?.parentId;
@@ -2700,6 +2704,7 @@ function deleteSelected() {
 }
 
 function startEdit(id, ta) {
+  if (isReadOnlyMode) return;
   if (!ta) return; ta.focus(); ta.select(); ta.dataset.editing = '1';
 }
 
@@ -2764,6 +2769,7 @@ function pasteClipboard() {
 }
 
 function duplicateBranch() {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
   if (!edState.selectedId) return;
   copySelected(); pasteClipboard();
 }
@@ -3491,24 +3497,98 @@ function ctxDo(action) {
 // ══════════════════════════════════════════════════
 function exportPNG() {
   const area = document.getElementById('canvas-area');
+  const dpr = 2;
+  const W = area.offsetWidth * dpr, H = area.offsetHeight * dpr;
   const canvas = document.createElement('canvas');
-  canvas.width = area.offsetWidth*2; canvas.height = area.offsetHeight*2;
+  canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#f5f5f3'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='rgba(0,0,0,.08)';
-  for(let x=0;x<canvas.width;x+=56) for(let y=0;y<canvas.height;y+=56){ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();}
-  const svgData=new XMLSerializer().serializeToString(document.getElementById('svg-layer'));
-  const img=new Image();
-  img.onload=()=>{
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    ctx.fillStyle='rgba(0,0,0,.2)';ctx.font='18px Syne,sans-serif';ctx.textAlign='right';
-    ctx.fillText('Opal Mind',canvas.width-16,canvas.height-16);
+
+  // Background
+  ctx.fillStyle = '#f5f5f3'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(0,0,0,.06)';
+  for(let x=0;x<W;x+=28*dpr) for(let y=0;y<H;y+=28*dpr){ctx.beginPath();ctx.arc(x,y,dpr*.7,0,Math.PI*2);ctx.fill();}
+
+  // Draw edges from SVG
+  const svgData = new XMLSerializer().serializeToString(document.getElementById('svg-layer'));
+  const svgBlob = new Blob([svgData], {type:'image/svg+xml'});
+  const svgUrl = URL.createObjectURL(svgBlob);
+  const svgImg = new Image();
+  svgImg.onload = () => {
+    ctx.drawImage(svgImg, 0, 0, W, H);
+    URL.revokeObjectURL(svgUrl);
+
+    // Draw nodes on top
+    const nodes = Object.values(edState.nodes);
+    const pan = edState.pan || {x:0,y:0};
+    const zoom = edState.zoom || 1;
+
+    nodes.forEach(node => {
+      const nx = (node.x * zoom + pan.x) * dpr;
+      const ny = (node.y * zoom + pan.y) * dpr;
+
+      // Get node element to measure size
+      const el = document.querySelector(`[data-id="${node.id}"]`);
+      let nw = 120 * dpr, nh = 36 * dpr;
+      if (el) { nw = el.offsetWidth * dpr * zoom; nh = el.offsetHeight * dpr * zoom; }
+
+      const rx = nx - nw/2, ry = ny - nh/2;
+      const radius = 8 * dpr;
+
+      // Node styles
+      const styles = [
+        {bg:'#111',text:'#fff',border:'#111'},
+        {bg:'#fff',text:'#111',border:'#111'},
+        {bg:'#f5f5f3',text:'#111',border:'#ccc'},
+        {bg:'#111',text:'#fff',border:'#333'},
+        {bg:'#e8e8e6',text:'#111',border:'#999'},
+        {bg:'#fff',text:'#111',border:'#111'},
+        {bg:'#333',text:'#fff',border:'#333'},
+        {bg:'#f0f0ee',text:'#333',border:'#ddd'},
+      ];
+      const s = styles[node.styleIdx || 0] || styles[0];
+
+      // Draw rounded rect
+      ctx.beginPath();
+      ctx.moveTo(rx+radius,ry); ctx.lineTo(rx+nw-radius,ry);
+      ctx.arcTo(rx+nw,ry,rx+nw,ry+radius,radius);
+      ctx.lineTo(rx+nw,ry+nh-radius);
+      ctx.arcTo(rx+nw,ry+nh,rx+nw-radius,ry+nh,radius);
+      ctx.lineTo(rx+radius,ry+nh);
+      ctx.arcTo(rx,ry+nh,rx,ry+nh-radius,radius);
+      ctx.lineTo(rx,ry+radius);
+      ctx.arcTo(rx,ry,rx+radius,ry,radius);
+      ctx.closePath();
+      ctx.fillStyle = s.bg; ctx.fill();
+      ctx.strokeStyle = s.border; ctx.lineWidth = dpr; ctx.stroke();
+
+      // Draw text
+      const fontSize = (node.isRoot ? 14 : 12) * dpr * zoom;
+      ctx.fillStyle = s.text;
+      ctx.font = `${node.isRoot?'700':'500'} ${fontSize}px DM Sans, sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const label = node.label || '';
+      // Truncate if too long
+      const maxW = nw - 16*dpr;
+      let displayLabel = label;
+      while(ctx.measureText(displayLabel).width > maxW && displayLabel.length > 3) {
+        displayLabel = displayLabel.slice(0,-1);
+      }
+      if (displayLabel !== label) displayLabel += '…';
+      ctx.fillText(displayLabel, nx, ny);
+    });
+
+    // Watermark
+    ctx.fillStyle='rgba(0,0,0,.18)';
+    ctx.font=`600 ${14*dpr}px DM Sans,sans-serif`;
+    ctx.textAlign='right'; ctx.textBaseline='bottom';
+    ctx.fillText('Opal Mind', W-12*dpr, H-12*dpr);
+
     const link=document.createElement('a');
     link.download=(currentMapTitle||'opal-mind')+'.png';
-    link.href=canvas.toDataURL('image/png');link.click();
+    link.href=canvas.toDataURL('image/png'); link.click();
     toast('PNG exportado!');
   };
-  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgData);
+  svgImg.src = svgUrl;
 }
 
 function exportJSON() {
@@ -3991,30 +4071,69 @@ async function checkSharedMap() {
   } catch(e) { return false; }
 }
 
+// Global flag — blocks all editing when in shared view
+
+
 function showSharedMapView(data, title) {
-  // Load data into editor state read-only
+  isReadOnlyMode = true;
+
   document.getElementById('landing-view').style.display = 'none';
   document.getElementById('app-wrapper').style.display = 'block';
   document.body.style.overflow = 'hidden';
-  
+
   loadEditorState(data);
   document.getElementById('map-title-input').value = title;
+  document.getElementById('map-title-input').readOnly = true;
   document.getElementById('nodes-layer').innerHTML = '';
-  
+
+  // Hide all editing UI
+  const hideSelectors = [
+    '.ed-toolbar',           // toolbar com todos os botões
+    '#btn-ai',               // gerar com IA
+    '.ed-right .btn',        // botões do header (exportar, ver, etc)
+    '#right-panel',          // painel de propriedades
+    '.node-toolbar',         // toolbar do nó
+    '.minimap',              // minimapa
+    '#status-bar',           // barra de status
+  ];
+  setTimeout(() => {
+    hideSelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => el.style.display = 'none');
+    });
+  }, 150);
+
   // Add read-only banner
+  const existing = document.getElementById('readonly-banner');
+  if (existing) existing.remove();
   const banner = document.createElement('div');
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#111;color:#fff;text-align:center;padding:8px;font-size:12px;font-family:DM Sans,sans-serif;';
-  banner.innerHTML = '👁 Modo somente leitura — <strong>' + title + '</strong> &nbsp;|&nbsp; <a href="' + window.location.pathname + '" style="color:#aaa;text-decoration:underline;">Criar meu próprio mapa</a>';
+  banner.id = 'readonly-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;gap:16px;padding:10px 20px;font-size:13px;font-family:DM Sans,sans-serif;';
+  banner.innerHTML = `
+    <span>👁 <strong>${title}</strong> — Modo somente leitura</span>
+    <a href="${window.location.pathname}" style="background:#fff;color:#111;padding:5px 14px;border-radius:20px;font-weight:700;font-size:12px;text-decoration:none;">
+      Criar conta e fazer meu mapa
+    </a>`;
   document.body.prepend(banner);
-  
-  // Show editor views
+
+  // Show editor
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-editor').classList.add('active');
-  
-  setTimeout(() => { 
+
+  setTimeout(() => {
     if (typeof renderAll === 'function') { renderAll(); fitView(); }
     if (typeof bindEditorEvents === 'function' && !editorEventsBound) bindEditorEvents();
-  }, 100);
+    // Add read-only overlay to block all node interactions
+    const overlay = document.createElement('div');
+    overlay.id = 'readonly-overlay';
+    overlay.style.cssText = 'position:absolute;inset:0;z-index:500;cursor:default;';
+    overlay.title = 'Modo somente leitura — crie uma conta para editar';
+    // Allow pan/zoom but block clicks on nodes
+    overlay.addEventListener('wheel', e => {
+      const canvasArea = document.getElementById('canvas-area');
+      canvasArea.dispatchEvent(new WheelEvent('wheel', e));
+    }, {passive:false});
+    document.getElementById('canvas-area').appendChild(overlay);
+  }, 200);
 }
 
 // ctxDo ai-expand handled in original function above
