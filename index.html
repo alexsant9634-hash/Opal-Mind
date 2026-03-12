@@ -1030,52 +1030,6 @@ kbd{background:var(--surface2);border:1px solid var(--border3);border-radius:4px
 </footer>
 
 <!-- AUTH MODAL -->
-<div class="modal-overlay" id="auth-modal">
-  <div class="auth-modal">
-    <button class="modal-close" onclick="closeAuth()">✕</button>
-    <div class="modal-logo">
-      <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><polygon points="12,2 22,7 22,17 12,22 2,17 2,7" fill="white"/><polygon points="12,2 22,7 12,12" fill="rgba(0,0,0,.3)"/><polygon points="12,12 22,17 12,22" fill="rgba(0,0,0,.45)"/></svg>
-      Opal Mind
-    </div>
-
-    <div id="auth-login-view">
-      <h2 class="modal-title">Bem-vindo de volta</h2>
-      <p class="modal-sub">Entre na sua conta para acessar seus mapas.</p>
-      <div class="auth-err" id="login-err"></div>
-      <div class="form-group">
-        <label class="form-label">E-mail</label>
-        <input id="login-email" class="form-input" type="email" placeholder="seu@email.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Senha</label>
-        <input id="login-pass" class="form-input" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button class="form-btn" id="login-btn" onclick="doLogin()">Entrar</button>
-      <div class="form-toggle">Não tem conta? <a onclick="switchAuth('signup')">Criar conta grátis</a></div>
-    </div>
-
-    <div id="auth-signup-view" style="display:none;">
-      <h2 class="modal-title">Criar conta</h2>
-      <p class="modal-sub">Gratuito para sempre. Sem cartão de crédito.</p>
-      <div class="auth-err" id="signup-err"></div>
-      <div class="form-group">
-        <label class="form-label">E-mail</label>
-        <input id="signup-email" class="form-input" type="email" placeholder="seu@email.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Senha</label>
-        <input id="signup-pass" class="form-input" type="password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doSignup()">
-      </div>
-      <button class="form-btn" id="signup-btn" onclick="doSignup()">Criar conta grátis</button>
-      <div class="form-toggle">Já tem conta? <a onclick="switchAuth('login')">Entrar</a></div>
-    </div>
-
-    <div id="auth-success-view" style="display:none;" class="form-success">
-      <div class="check">✓</div>
-      <p><strong>Conta criada!</strong><br>Redirecionando para o app…</p>
-    </div>
-  </div>
-</div>
 
 
 </div>
@@ -1694,8 +1648,14 @@ function switchAuth(mode) {
   document.getElementById('signup-err').classList.remove('show');
 }
 
-document.getElementById('auth-modal').addEventListener('click', e => {
-  if (e.target === document.getElementById('auth-modal')) closeAuth();
+// auth-modal is placed after </script>, so bind events after DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  const authModal = document.getElementById('auth-modal');
+  if (authModal) {
+    authModal.addEventListener('click', e => {
+      if (e.target === authModal) closeAuth();
+    });
+  }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAuth(); });
 
@@ -2652,7 +2612,7 @@ function addNode(parentId, label, x, y, isRoot=false) {
 }
 
 function addChildNode() {
-  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; }
   const pid = edState.selectedId || Object.values(edState.nodes).find(n=>n.isRoot)?.id;
   if (!pid || !edState.nodes[pid]) return;
   const p = edState.nodes[pid];
@@ -2668,7 +2628,7 @@ function addChildNode() {
 }
 
 function addSiblingNode() {
-  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; }
   if (!edState.selectedId || edState.nodes[edState.selectedId]?.isRoot) { addChildNode(); return; }
   const node = edState.nodes[edState.selectedId];
   if (!node.parentId) return;
@@ -2696,7 +2656,7 @@ function removeNodeRec(id) {
 }
 
 function deleteSelected() {
-  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; }
   if (!edState.selectedId) return;
   if (edState.nodes[edState.selectedId]?.isRoot) { toast('Não é possível excluir o nó raiz'); return; }
   const pid = edState.nodes[edState.selectedId]?.parentId;
@@ -2776,7 +2736,7 @@ function pasteClipboard() {
 }
 
 function duplicateBranch() {
-  if (isReadOnlyMode) { toast("Modo somente leitura"); return; } {
+  if (isReadOnlyMode) { toast("Modo somente leitura"); return; }
   if (!edState.selectedId) return;
   copySelected(); pasteClipboard();
 }
@@ -4306,5 +4266,51 @@ Responda APENAS com o resumo, sem introdução, sem aspas, sem explicações.`;
 })();
 
 </script>
+<div class="modal-overlay" id="auth-modal">
+  <div class="auth-modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="modal-logo">
+      <svg viewBox="0 0 24 24" fill="none" width="22" height="22"><polygon points="12,2 22,7 22,17 12,22 2,17 2,7" fill="white"/><polygon points="12,2 22,7 12,12" fill="rgba(0,0,0,.3)"/><polygon points="12,12 22,17 12,22" fill="rgba(0,0,0,.45)"/></svg>
+      Opal Mind
+    </div>
+
+    <div id="auth-login-view">
+      <h2 class="modal-title">Bem-vindo de volta</h2>
+      <p class="modal-sub">Entre na sua conta para acessar seus mapas.</p>
+      <div class="auth-err" id="login-err"></div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input id="login-email" class="form-input" type="email" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input id="login-pass" class="form-input" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <button class="form-btn" id="login-btn" onclick="doLogin()">Entrar</button>
+      <div class="form-toggle">Não tem conta? <a onclick="switchAuth('signup')">Criar conta grátis</a></div>
+    </div>
+
+    <div id="auth-signup-view" style="display:none;">
+      <h2 class="modal-title">Criar conta</h2>
+      <p class="modal-sub">Gratuito para sempre. Sem cartão de crédito.</p>
+      <div class="auth-err" id="signup-err"></div>
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input id="signup-email" class="form-input" type="email" placeholder="seu@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input id="signup-pass" class="form-input" type="password" placeholder="Mínimo 6 caracteres" onkeydown="if(event.key==='Enter')doSignup()">
+      </div>
+      <button class="form-btn" id="signup-btn" onclick="doSignup()">Criar conta grátis</button>
+      <div class="form-toggle">Já tem conta? <a onclick="switchAuth('login')">Entrar</a></div>
+    </div>
+
+    <div id="auth-success-view" style="display:none;" class="form-success">
+      <div class="check">✓</div>
+      <p><strong>Conta criada!</strong><br>Redirecionando para o app…</p>
+    </div>
+  </div>
+</div>
 </body>
 </html>
